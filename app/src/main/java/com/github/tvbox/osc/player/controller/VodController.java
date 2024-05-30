@@ -13,6 +13,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.AccelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
@@ -82,21 +83,21 @@ public class VodController extends BaseController {
                         break;
                     }
                     case 1002: { // 显示底部菜单
-                        mBottomRoot.setVisibility(VISIBLE);
-                        mTopRoot1.setVisibility(VISIBLE);
-                        mTopRoot2.setVisibility(VISIBLE);
+                        toggleViewShowWithAlpha(mBottomRoot, true);
+                        toggleViewShowWithAlpha(mTopRoot1, true);
+                        toggleViewShowWithAlpha(mTopRoot2, true);
                         if (!isLock){// 未上锁,随底部显示
-                            mLockView.setVisibility(VISIBLE);
+                            toggleViewShowWithAlpha(mLockView, true);
                         }
                         mNextBtn.requestFocus();
                         break;
                     }
                     case 1003: { // 隐藏底部菜单
-                        mBottomRoot.setVisibility(GONE);
-                        mTopRoot1.setVisibility(GONE);
-                        mTopRoot2.setVisibility(GONE);
-                        if (!isLock){// 未上锁,随底部隐藏
-                            mLockView.setVisibility(GONE);
+                        toggleViewShowWithAlpha(mBottomRoot, false);
+                        toggleViewShowWithAlpha(mTopRoot1, false);
+                        toggleViewShowWithAlpha(mTopRoot2, false);
+                        if (!isLock){// 未上锁,随底部显示
+                            toggleViewShowWithAlpha(mLockView, false);
                         }
                         if (listener != null) {
                             listener.onHideBottom();
@@ -170,11 +171,8 @@ public class VodController extends BaseController {
     private boolean isLock = false;
     private ParseAdapter mParseAdapter;
 
-    /**
-     * Home键广播,用于触发后台服务
-     */
-    private BroadcastReceiver mHomeKeyReceiver;
-    volatile boolean openBackgroundPip;
+
+
 
     private Runnable myRunnable2 = new Runnable() {
         @Override
@@ -1087,11 +1085,7 @@ public class VodController extends BaseController {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mHandler.removeCallbacks(myRunnable2);
-        // 注销广播接收器
-        if (mHomeKeyReceiver != null) {
-            getContext().getApplicationContext().unregisterReceiver(mHomeKeyReceiver);
-            mHomeKeyReceiver = null;
-        }
+
     }
 
     public void openSubtitle(boolean open) {
@@ -1134,4 +1128,23 @@ public class VodController extends BaseController {
             e.printStackTrace();
         }
     }
+
+    private void toggleViewShowWithAlpha(View view, boolean show) {
+        if (show) {
+            view.setVisibility(View.VISIBLE);
+            view.animate()
+                    .alpha(1.0f)
+                    .setDuration(100)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .start();
+        } else {
+            view.animate()
+                    .alpha(0.0f)
+                    .setDuration(100)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(() -> view.setVisibility(View.GONE))
+                    .start();
+        }
+    }
+
 }
