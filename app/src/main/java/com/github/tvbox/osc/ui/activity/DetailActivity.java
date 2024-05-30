@@ -16,6 +16,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Rational;
 import android.view.KeyEvent;
 import android.view.View;
@@ -130,6 +131,8 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
     boolean openBackgroundPlay;
     private BroadcastReceiver mRemoteActionReceiver;
 
+
+    boolean openBackgroundPip;
     @Override
     protected void init() {
         initReceiver();
@@ -148,6 +151,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
     @Override
     protected void onResume() {
         super.onResume();
+        openBackgroundPip = false;
         openBackgroundPlay = false;
         playServerSwitch(false);
         mBinding.ivPrivateBrowsing.postDelayed(NotificationUtils::cancelAll,800);
@@ -272,6 +276,17 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
         if (openBackgroundPlay){
             playServerSwitch(true);
         }
+
+
+        if (openBackgroundPip) {
+            //注意发送方的页面如果不需要接收事件就不需要进行EventBus的注册，发送方只需要调用该语句
+            EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_PIP_HOME,0));
+        } else {
+            if (Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 2 ) {
+
+            }
+        }
+
     }
 
     private void initReceiver(){
@@ -283,6 +298,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                     String action = intent.getAction();
                     if (action != null && action.equals(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)) {
                         openBackgroundPlay = Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 1 && playFragment.getPlayer() != null && playFragment.getPlayer().isPlaying();
+                        openBackgroundPip = Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 2 && playFragment.getPlayer() != null && playFragment.getPlayer().isPlaying();
                     }
                 }
             };
@@ -299,7 +315,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             isReverse = !isReverse;
             vodInfo.reverse();
             vodInfo.playIndex=(vodInfo.seriesMap.get(vodInfo.playFlag).size()-1)-vodInfo.playIndex;
-//                    insertVod(sourceKey, vodInfo);
+            //                    insertVod(sourceKey, vodInfo);
 
             seriesAdapter.notifyDataSetChanged();
         }
@@ -407,7 +423,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             //保存历史
             insertVod(sourceKey, vodInfo);
             bundle.putString("sourceKey", sourceKey);
-//            bundle.putSerializable("VodInfo", vodInfo);
+            //            bundle.putSerializable("VodInfo", vodInfo);
             App.getInstance().setVodInfo(vodInfo);
             if (previewVodInfo == null) {
                 try {
@@ -427,7 +443,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                 previewVodInfo.playFlag = vodInfo.playFlag;
                 previewVodInfo.playIndex = vodInfo.playIndex;
                 previewVodInfo.seriesMap = vodInfo.seriesMap;
-//                    bundle.putSerializable("VodInfo", previewVodInfo);
+                //                    bundle.putSerializable("VodInfo", previewVodInfo);
                 App.getInstance().setVodInfo(previewVodInfo);
             }
             playFragment.setData(bundle);
@@ -509,7 +525,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                             } else
                                 flag.selected = false;
                         }
-//                        setTextShow(tvPlayUrl, "播放地址：", vodInfo.seriesMap.get(vodInfo.playFlag).get(0).url);
+                        //                        setTextShow(tvPlayUrl, "播放地址：", vodInfo.seriesMap.get(vodInfo.playFlag).get(0).url);
                         //设置线路数据
                         seriesFlagAdapter.setNewData(vodInfo.seriesFlags);
                         mBinding.mGridViewFlag.scrollToPosition(flagScrollTo);
@@ -828,7 +844,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.setDataAndType(Uri.parse(url), "video/mp4");
             intent.putExtra("title", vodInfo.name+" "+vod.name); // 传入文件保存名
-//            intent.setClassName("idm.internet.download.manager.plus", "idm.internet.download.manager.MainActivity");
+            //            intent.setClassName("idm.internet.download.manager.plus", "idm.internet.download.manager.MainActivity");
             intent.setClassName("idm.internet.download.manager.plus", "idm.internet.download.manager.Downloader");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 

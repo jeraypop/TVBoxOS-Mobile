@@ -1,15 +1,18 @@
 package com.github.tvbox.osc.player.controller;
 
 import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.animation.AccelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
@@ -19,11 +22,15 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 
+import com.blankj.utilcode.util.LogUtils;
+import com.blankj.utilcode.util.SPUtils;
 import com.blankj.utilcode.util.ToastUtils;
+import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.bean.IJKCode;
 import com.github.tvbox.osc.bean.ParseBean;
+import com.github.tvbox.osc.constant.CacheConst;
 import com.github.tvbox.osc.event.RefreshEvent;
 import com.github.tvbox.osc.subtitle.widget.SimpleSubtitleView;
 import com.github.tvbox.osc.ui.adapter.ParseAdapter;
@@ -41,6 +48,8 @@ import com.owen.tvrecyclerview.widget.TvRecyclerView;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -73,21 +82,21 @@ public class VodController extends BaseController {
                         break;
                     }
                     case 1002: { // 显示底部菜单
-                        toggleViewShowWithAlpha(mBottomRoot, true);
-                        toggleViewShowWithAlpha(mTopRoot1, true);
-                        toggleViewShowWithAlpha(mTopRoot2, true);
+                        mBottomRoot.setVisibility(VISIBLE);
+                        mTopRoot1.setVisibility(VISIBLE);
+                        mTopRoot2.setVisibility(VISIBLE);
                         if (!isLock){// 未上锁,随底部显示
-                            toggleViewShowWithAlpha(mLockView, true);
+                            mLockView.setVisibility(VISIBLE);
                         }
                         mNextBtn.requestFocus();
                         break;
                     }
                     case 1003: { // 隐藏底部菜单
-                        toggleViewShowWithAlpha(mBottomRoot, false);
-                        toggleViewShowWithAlpha(mTopRoot1, false);
-                        toggleViewShowWithAlpha(mTopRoot2, false);
-                        if (!isLock){// 未上锁,随底部显示
-                            toggleViewShowWithAlpha(mLockView, false);
+                        mBottomRoot.setVisibility(GONE);
+                        mTopRoot1.setVisibility(GONE);
+                        mTopRoot2.setVisibility(GONE);
+                        if (!isLock){// 未上锁,随底部隐藏
+                            mLockView.setVisibility(GONE);
                         }
                         if (listener != null) {
                             listener.onHideBottom();
@@ -161,6 +170,12 @@ public class VodController extends BaseController {
     private boolean isLock = false;
     private ParseAdapter mParseAdapter;
 
+    /**
+     * Home键广播,用于触发后台服务
+     */
+    private BroadcastReceiver mHomeKeyReceiver;
+    volatile boolean openBackgroundPip;
+
     private Runnable myRunnable2 = new Runnable() {
         @Override
         public void run() {
@@ -194,6 +209,8 @@ public class VodController extends BaseController {
         super.initView();
         View pip = findViewById(R.id.pip);
         pip.setVisibility((Utils.supportsPiPMode() && Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 2)?VISIBLE:GONE);
+        //注册
+        EventBus.getDefault().register(this);
         mMyBatteryView = findViewById(R.id.battery);
         mTopRightDeviceInfo = findViewById(R.id.container_top_right_device_info);
         mLlSpeed = findViewById(R.id.ll_speed);
@@ -515,7 +532,7 @@ public class VodController extends BaseController {
             mPlayerIJKBtn.requestFocus();
             mPlayerIJKBtn.requestFocusFromTouch();
         });
-//        增加播放页面片头片尾时间重置
+        //        增加播放页面片头片尾时间重置
         mPlayerTimeResetBtn.setOnClickListener(v -> {
             myHandle.removeCallbacks(myRunnable);
             myHandle.postDelayed(myRunnable, dismissTimeOperationBar);
@@ -615,6 +632,19 @@ public class VodController extends BaseController {
         });
     }
 
+    //订阅
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void refresh(RefreshEvent event) {
+        if (event.type == RefreshEvent.TYPE_PIP_HOME){
+            if (isInPlaybackState()){
+                listener.pip();
+                hideBottom();
+            }
+        }
+    }
+
+
+
     public void setSpeed(String speedStr) {
         myHandle.removeCallbacks(myRunnable);
         myHandle.postDelayed(myRunnable, dismissTimeOperationBar);
@@ -647,8 +677,8 @@ public class VodController extends BaseController {
             mPlayerTimeResetBtn.setVisibility(GONE);
             mNextBtn.setNextFocusLeftId(R.id.zimu_select);
         } else {
-            mPlayerSpeedBtn.setVisibility(View.VISIBLE);
-            mPlayerTimeStartEndText.setVisibility(View.VISIBLE);
+            //            mPlayerSpeedBtn.setVisibility(View.VISIBLE);
+            //            mPlayerTimeStartEndText.setVisibility(View.VISIBLE);
             mPlayerTimeStartBtn.setVisibility(View.VISIBLE);
             mPlayerTimeSkipBtn.setVisibility(View.VISIBLE);
             mPlayerTimeResetBtn.setVisibility(View.VISIBLE);
@@ -712,8 +742,18 @@ public class VodController extends BaseController {
             mPlayerIJKBtn.setVisibility(playerType == 1 ? VISIBLE : GONE);
             mPlayerScaleBtn.setText(PlayerHelper.getScaleName(mPlayerConfig.getInt("sc")));
             mPlayerSpeedBtn.setText("x" + mPlayerConfig.getDouble("sp"));
-            mPlayerTimeStartBtn.setText(PlayerUtils.stringForTime(mPlayerConfig.getInt("st") * 1000));
-            mPlayerTimeSkipBtn.setText(PlayerUtils.stringForTime(mPlayerConfig.getInt("et") * 1000));
+            if (mPlayerConfig.getInt("st")==0) {
+                mPlayerTimeStartBtn.setText("片头");
+            } else {
+                mPlayerTimeStartBtn.setText(PlayerUtils.stringForTime(mPlayerConfig.getInt("st") * 1000));
+            }
+            if (mPlayerConfig.getInt("et")==0) {
+                mPlayerTimeSkipBtn.setText("片尾");
+            } else {
+                mPlayerTimeSkipBtn.setText(PlayerUtils.stringForTime(mPlayerConfig.getInt("et") * 1000));
+            }
+
+
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -955,7 +995,7 @@ public class VodController extends BaseController {
                     togglePlay();
                     return true;
                 }
-//            } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {  return true;// 闲置开启计时关闭透明底栏
+                //            } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {  return true;// 闲置开启计时关闭透明底栏
             } else if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_MENU) {
                 if (!isBottomVisible()) {
                     showBottom();
@@ -1047,6 +1087,11 @@ public class VodController extends BaseController {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mHandler.removeCallbacks(myRunnable2);
+        // 注销广播接收器
+        if (mHomeKeyReceiver != null) {
+            getContext().getApplicationContext().unregisterReceiver(mHomeKeyReceiver);
+            mHomeKeyReceiver = null;
+        }
     }
 
     public void openSubtitle(boolean open) {
@@ -1087,24 +1132,6 @@ public class VodController extends BaseController {
             listener.updatePlayerCfg();
         } catch (JSONException e) {
             e.printStackTrace();
-        }
-    }
-
-    private void toggleViewShowWithAlpha(View view, boolean show) {
-        if (show) {
-            view.setVisibility(View.VISIBLE);
-            view.animate()
-                    .alpha(1.0f)
-                    .setDuration(100)
-                    .setInterpolator(new AccelerateInterpolator())
-                    .start();
-        } else {
-            view.animate()
-                    .alpha(0.0f)
-                    .setDuration(100)
-                    .setInterpolator(new AccelerateInterpolator())
-                    .withEndAction(() -> view.setVisibility(View.GONE))
-                    .start();
         }
     }
 }

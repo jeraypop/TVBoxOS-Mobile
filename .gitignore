@@ -93,6 +93,7 @@ lint/tmp/
 /LTDecodeSpace
 /adb.exe
 /LTDecodeNew3.exe
+/Keystore.properties
 
 .idea/
 /app/release/
