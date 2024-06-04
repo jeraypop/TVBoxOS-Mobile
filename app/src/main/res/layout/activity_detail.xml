@@ -77,6 +77,22 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
                         >
+                        <TextView
+                            android:id="@+id/tvSiteNext"
+                            android:background="@drawable/bg_large_round_gray"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            tools:text="换源"
+                            android:text="Next"
+                            android:textColor="@color/text_foreground"
+                            android:drawableRight="@drawable/ic_change_20"
+                            android:drawablePadding="4dp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                         />
 
                             <TextView
                                 android:id="@+id/tvSite"
